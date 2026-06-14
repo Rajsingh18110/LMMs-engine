@@ -758,10 +758,16 @@ def main():
                         if user_input.lower() in ["/exit", "/quit", "exit"]: break
                         
                         if user_input.lower().startswith("/image "):
-                            parts = user_input.split(" ", 2)
-                            if len(parts) >= 2:
-                                img_path = parts[1]
-                                text_prompt = parts[2] if len(parts) > 2 else "Describe this image."
+                            import shlex
+                            try:
+                                parsed = shlex.split(user_input[7:].strip())
+                            except ValueError:
+                                console.print("[red]Invalid path formatting. Make sure quotes are closed properly.[/red]")
+                                continue
+                                
+                            if len(parsed) >= 1:
+                                img_path = parsed[0]
+                                text_prompt = " ".join(parsed[1:]) if len(parsed) > 1 else "Describe this image."
                                 
                                 if os.path.exists(img_path):
                                     try:
