@@ -408,8 +408,28 @@ async def chat_completions(req: ChatRequest):
     # Ensure a model is loaded. If not, auto-load?
     runtime = None
     
+    def _fuzzy_match_model(req_name: str, loaded_keys) -> str | None:
+        """Return the actual key in loaded_keys that best matches req_name, or None."""
+        # Exact match first
+        if req_name in loaded_keys:
+            return req_name
+        # Normalize: lowercase, strip .gguf, replace - and : with spaces
+        def norm(s):
+            return s.lower().replace(".gguf", "").replace("-", "").replace("_", "").replace(":", "").replace(".", "").replace(" ", "")
+        req_norm = norm(req_name)
+        for key in loaded_keys:
+            if norm(key) == req_norm:
+                return key
+            # Partial match: req_name normalized is substring of key normalized
+            if req_norm in norm(key) or norm(key) in req_norm:
+                return key
+        return None
+
     # Check if loaded in llama runtime
-    if req.model_name in engine_manager.runtime._models or req.model_name + ".gguf" in engine_manager.runtime._models or os.path.basename(req.model_name).replace(".gguf", "") in engine_manager.runtime._models:
+    matched_key = _fuzzy_match_model(req.model_name, list(engine_manager.runtime._models.keys()))
+    if matched_key:
+        # Normalize the request model_name to the actual loaded key
+        req.model_name = matched_key
         runtime = engine_manager.runtime
     # Check if loaded in pytorch runtime
     elif getattr(engine_manager.pytorch_runtime, "_is_loaded", False) and getattr(engine_manager.pytorch_runtime, "_model_id", "") == req.model_name:
