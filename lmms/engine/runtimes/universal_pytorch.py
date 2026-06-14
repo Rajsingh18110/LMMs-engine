@@ -218,29 +218,9 @@ class UniversalPyTorchRuntime:
                 yield {"message": {"content": msg}}
                 
             elif task == "automatic-speech-recognition":
-                import os
                 if not user_audio:
-                    # Voice recording fallback
-                    import subprocess
-                    tmp_mic = "/tmp/lmms_mic_record.wav"
-                    console.print("\n[bold red]🎙️ No audio file provided. Recording from Mic... (Press Ctrl+C to stop)[/bold red]")
-                    try:
-                        subprocess.run(["arecord", "-f", "S16_LE", "-c", "1", "-r", "16000", "-q", tmp_mic])
-                    except KeyboardInterrupt:
-                        console.print("[dim magenta]Recording stopped. Transcribing...[/dim magenta]")
-                    except Exception as e:
-                        yield {"message": {"content": f"Error: Could not record from mic: {e}"}}
-                        return
-                        
-                    if not os.path.exists(tmp_mic):
-                        yield {"message": {"content": "Error: Microphone recording failed (No file generated). Ensure your mic is connected and working."}}
-                        return
-                        
-                    import base64
-                    with open(tmp_mic, "rb") as f:
-                        b64_data = base64.b64encode(f.read()).decode("utf-8")
-                    user_audio = f"data:audio/wav;base64,{b64_data}"
-                    os.unlink(tmp_mic)
+                    yield {"message": {"content": "Error: This model requires an audio file. Please provide an audio file path or use the client microphone recording feature."}}
+                    return
                     
                 import base64
                 import io

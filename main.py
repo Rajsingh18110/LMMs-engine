@@ -826,13 +826,41 @@ def main():
                                         ]
                                     })
                                     console.print(f"[dim magenta]🎙️ Loaded local audio: {audio_path}[/dim magenta]")
-                                    continue
                                 except Exception as e:
                                     console.print(f"[red]Failed to load audio: {e}[/red]")
                                     continue
                             else:
                                 console.print(f"[red]Audio not found: {audio_path}[/red]")
                                 continue
+                                
+                        elif pipeline_tag == "automatic-speech-recognition" and not is_audio_input:
+                            # Default to Mic if no file provided for STT
+                            import subprocess
+                            import os
+                            tmp_mic = "/tmp/lmms_mic_client.wav"
+                            console.print("\n[bold red]🎙️ Recording from Mic... (Press Ctrl+C to stop)[/bold red]")
+                            try:
+                                subprocess.run(["arecord", "-f", "S16_LE", "-c", "1", "-r", "16000", "-q", tmp_mic])
+                            except KeyboardInterrupt:
+                                console.print("[dim magenta]Recording stopped. Processing...[/dim magenta]")
+                            except Exception as e:
+                                console.print(f"[red]Error recording from mic: {e}[/red]")
+                                continue
+                                
+                            if os.path.exists(tmp_mic):
+                                import base64
+                                with open(tmp_mic, "rb") as f:
+                                    b64_data = base64.b64encode(f.read()).decode("utf-8")
+                                messages.append({
+                                    "role": "user",
+                                    "content": [
+                                        {"type": "audio_url", "audio_url": {"url": f"data:audio/wav;base64,{b64_data}"}},
+                                        {"type": "text", "text": "Transcribe this audio."}
+                                    ]
+                                })
+                                os.unlink(tmp_mic)
+                                is_audio_input = True # Mark as handled so it doesn't append text twice
+
                                 
                         if is_image_input and img_path:
                             if os.path.exists(img_path):
@@ -898,7 +926,8 @@ def main():
                                     console.print(f"[red]Failed to capture screen: {e}[/red]")
                                     messages.append({"role": "user", "content": user_input})
                             else:
-                                messages.append({"role": "user", "content": user_input})
+                                if not is_audio_input:
+                                    messages.append({"role": "user", "content": user_input})
 
                         sys.stdout.write(f"[{model_name}] ")
                         sys.stdout.flush()
