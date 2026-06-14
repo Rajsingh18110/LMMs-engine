@@ -772,7 +772,7 @@ def main():
                         
                     while True:
                         user_input = input(f"[{model_name}]> ")
-                        if not user_input.strip(): continue
+                        if not user_input.strip() and not is_audio: continue
                         if user_input.lower() in ["/exit", "/quit", "exit"]: break
                         
                         import shlex
