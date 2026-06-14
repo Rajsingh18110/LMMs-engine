@@ -757,47 +757,58 @@ def main():
                         if not user_input.strip(): continue
                         if user_input.lower() in ["/exit", "/quit", "exit"]: break
                         
+                        import shlex
+                        try:
+                            parsed = shlex.split(user_input.strip())
+                        except ValueError:
+                            parsed = []
+                            
+                        is_image_input = False
+                        img_path = None
+                        text_prompt = ""
+                        
                         if user_input.lower().startswith("/image "):
-                            import shlex
-                            try:
-                                parsed = shlex.split(user_input[7:].strip())
-                            except ValueError:
-                                console.print("[red]Invalid path formatting. Make sure quotes are closed properly.[/red]")
-                                continue
-                                
-                            if len(parsed) >= 1:
-                                img_path = parsed[0]
+                            is_image_input = True
+                            if len(parsed) >= 2:
+                                img_path = parsed[1]
+                                text_prompt = " ".join(parsed[2:]) if len(parsed) > 2 else "Describe this image."
+                        elif parsed and len(parsed) >= 1:
+                            potential_path = parsed[0]
+                            if os.path.exists(potential_path) and potential_path.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                is_image_input = True
+                                img_path = potential_path
                                 text_prompt = " ".join(parsed[1:]) if len(parsed) > 1 else "Describe this image."
                                 
-                                if os.path.exists(img_path):
-                                    try:
-                                        import base64
-                                        from PIL import Image
-                                        with Image.open(img_path) as img:
-                                            img.thumbnail((1024, 1024))
-                                            import tempfile
-                                            import os
-                                            tf = tempfile.mktemp(suffix=".png")
-                                            img.save(tf, format="PNG")
-                                            
-                                        with open(tf, "rb") as image_file:
-                                            b64_data = base64.b64encode(image_file.read()).decode("utf-8")
-                                        os.unlink(tf)
+                        if is_image_input and img_path:
+                            if os.path.exists(img_path):
+                                try:
+                                    import base64
+                                    from PIL import Image
+                                    with Image.open(img_path) as img:
+                                        img.thumbnail((1024, 1024))
+                                        import tempfile
+                                        import os
+                                        tf = tempfile.mktemp(suffix=".png")
+                                        img.save(tf, format="PNG")
                                         
-                                        messages.append({
-                                            "role": "user",
-                                            "content": [
-                                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_data}"}},
-                                                {"type": "text", "text": text_prompt}
-                                            ]
-                                        })
-                                        console.print(f"[dim magenta]📸 Loaded local image: {img_path}[/dim magenta]")
-                                    except Exception as e:
-                                        console.print(f"[red]Failed to load image: {e}[/red]")
-                                        continue
-                                else:
-                                    console.print(f"[red]Image not found: {img_path}[/red]")
+                                    with open(tf, "rb") as image_file:
+                                        b64_data = base64.b64encode(image_file.read()).decode("utf-8")
+                                    os.unlink(tf)
+                                    
+                                    messages.append({
+                                        "role": "user",
+                                        "content": [
+                                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_data}"}},
+                                            {"type": "text", "text": text_prompt}
+                                        ]
+                                    })
+                                    console.print(f"[dim magenta]📸 Loaded local image: {img_path}[/dim magenta]")
+                                except Exception as e:
+                                    console.print(f"[red]Failed to load image: {e}[/red]")
                                     continue
+                            else:
+                                console.print(f"[red]Image not found: {img_path}[/red]")
+                                continue
                         else:
                             screen_keywords = ["screen", "screenshot", "see", "look"]
                             takes_screenshot = is_vlm and any(kw in user_input.lower() for kw in screen_keywords)
