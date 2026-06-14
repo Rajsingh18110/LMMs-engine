@@ -646,7 +646,7 @@ def main():
                         choice = input("Would you like to DOWNLOAD the Support Engine package? (y/n): ")
                         if choice.strip().lower() == "y":
                             print("\033[92mTo install the support package, please run:\033[0m")
-                            print("pip install torch torchvision torchaudio transformers accelerate soundfile kokoro")
+                            print(f"{sys.executable} -m pip install torch torchvision torchaudio transformers accelerate soundfile kokoro --break-system-packages")
                             sys.exit(0)
                         else:
                             print("\033[91mAborted.\033[0m")

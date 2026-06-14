@@ -27,7 +27,7 @@ class UniversalPyTorchRuntime:
                 console.print(f"[bold green]Successfully loaded {model_id} via Kokoro Dedicated Pipeline[/bold green]")
                 return True
             except ImportError:
-                console.print("[red]Kokoro package missing! Please run: pip install kokoro soundfile[/red]")
+                console.print(f"[red]Kokoro package missing! Please run: {sys.executable} -m pip install kokoro soundfile --break-system-packages[/red]")
                 return False
             except Exception as e:
                 console.print(f"[red]Failed to load Kokoro model: {e}[/red]")
