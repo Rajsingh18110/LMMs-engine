@@ -35,6 +35,43 @@ class UniversalPyTorchRuntime:
 
         # Fallback to Universal Hugging Face Pipeline
         try:
+            # Inject beautiful circular progress bar
+            import sys
+            import tqdm
+            from rich.progress import Progress, SpinnerColumn, TextColumn
+            
+            class RichTqdm(tqdm.tqdm):
+                def __init__(self, *args, **kwargs):
+                    self.rich_progress = Progress(
+                        SpinnerColumn("circle"),
+                        TextColumn("[cyan]{task.description}"),
+                        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                        transient=True
+                    )
+                    self.total_val = kwargs.get("total", 100)
+                    desc = kwargs.get("desc", "Downloading Neural Weights...")
+                    self.rich_progress.start()
+                    self.task_id = self.rich_progress.add_task(desc, total=self.total_val)
+                    super().__init__(*args, **kwargs, disable=True)
+                    
+                def update(self, n=1):
+                    self.rich_progress.update(self.task_id, advance=n)
+                    super().update(n)
+                    
+                def close(self):
+                    self.rich_progress.stop()
+                    super().close()
+            
+            tqdm.tqdm = RichTqdm
+            tqdm.auto = type("auto", (), {"tqdm": RichTqdm})
+            sys.modules["tqdm"] = tqdm
+            sys.modules["tqdm.auto"] = tqdm.auto
+            
+            try:
+                from huggingface_hub.utils import _tqdm
+                _tqdm.tqdm = RichTqdm
+            except: pass
+            
             from transformers import pipeline
             import logging
             logging.getLogger("transformers").setLevel(logging.ERROR)
