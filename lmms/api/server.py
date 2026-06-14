@@ -439,10 +439,11 @@ async def chat_completions(req: ChatRequest):
             # It's a GGUF model -> LlamaCppRuntime
             size_gb = os.path.getsize(path) / (1024**3)
             if engine_manager.cache.can_fit(size_gb):
+                engine_manager.cache.load_model(req.model_name, size_gb)
                 success = engine_manager.runtime.load_model(path)
                 if not success:
+                    engine_manager.cache.unload_model(req.model_name)
                     raise HTTPException(status_code=500, detail="Failed to load model. Is llama-cpp-python installed?")
-                engine_manager.cache.load_model(req.model_name, size_gb)
                 runtime = engine_manager.runtime
             else:
                 raise HTTPException(status_code=507, detail="Insufficient memory to auto-load")
