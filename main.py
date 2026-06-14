@@ -610,6 +610,7 @@ def main():
                 elif "qwen3-vl" in model_name.lower(): hf_repo = "Qwen/Qwen3-VL-8B-Instruct"
                 elif "qwen2.5-vl" in model_name.lower(): hf_repo = "Qwen/Qwen2.5-VL-3B-Instruct"
                 elif "kokoro" in model_name.lower(): hf_repo = "hexgrad/Kokoro-82M"
+                elif "parakeet" in model_name.lower() or "whisper" in model_name.lower(): hf_repo = "openai/whisper-small"
                 
                 pipeline_tag = None
                 try:
@@ -795,6 +796,43 @@ def main():
                                 is_image_input = True
                                 img_path = potential_path
                                 text_prompt = " ".join(parsed[1:]) if len(parsed) > 1 else "Describe this image."
+                                
+                        is_audio_input = False
+                        audio_path = None
+                        
+                        if user_input.lower().startswith("/audio "):
+                            is_audio_input = True
+                            if len(parsed) >= 2:
+                                audio_path = parsed[1]
+                                text_prompt = " ".join(parsed[2:]) if len(parsed) > 2 else "Transcribe this audio."
+                        elif parsed and len(parsed) >= 1:
+                            potential_path = parsed[0]
+                            if os.path.exists(potential_path) and potential_path.lower().endswith(('.wav', '.mp3', '.ogg', '.flac')):
+                                is_audio_input = True
+                                audio_path = potential_path
+                                text_prompt = " ".join(parsed[1:]) if len(parsed) > 1 else "Transcribe this audio."
+                                
+                        if is_audio_input and audio_path:
+                            if os.path.exists(audio_path):
+                                import base64
+                                try:
+                                    with open(audio_path, "rb") as f:
+                                        b64_data = base64.b64encode(f.read()).decode("utf-8")
+                                    messages.append({
+                                        "role": "user",
+                                        "content": [
+                                            {"type": "audio_url", "audio_url": {"url": f"data:audio/wav;base64,{b64_data}"}},
+                                            {"type": "text", "text": text_prompt}
+                                        ]
+                                    })
+                                    console.print(f"[dim magenta]🎙️ Loaded local audio: {audio_path}[/dim magenta]")
+                                    continue
+                                except Exception as e:
+                                    console.print(f"[red]Failed to load audio: {e}[/red]")
+                                    continue
+                            else:
+                                console.print(f"[red]Audio not found: {audio_path}[/red]")
+                                continue
                                 
                         if is_image_input and img_path:
                             if os.path.exists(img_path):

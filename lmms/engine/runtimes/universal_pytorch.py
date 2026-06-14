@@ -62,6 +62,8 @@ class UniversalPyTorchRuntime:
                     user_text = item["text"]
                 elif item["type"] == "image_url":
                     user_image = item["image_url"]["url"]
+                elif item["type"] == "audio_url":
+                    user_audio = item["audio_url"]["url"]
         elif messages:
             user_text = messages[-1].get("content", "")
 
@@ -87,27 +89,22 @@ class UniversalPyTorchRuntime:
                 
                 import numpy as np
                 final_audio = np.concatenate(audio_chunks)
-                
-                out_path = os.path.expanduser("~/Desktop/lmms_audio_response.wav")
+                import os
+                out_path = "/tmp/lmms_audio_response.wav"
                 sf.write(out_path, final_audio, sample_rate)
                 
-                msg = f"[Audio saved to {out_path}]\n"
+                msg = "[Playing generated audio...]\n"
                 
-                if self.autoplay_audio:
-                    msg += "[Playing audio...]\n"
-                    import threading
-                    import subprocess
-                    def play_audio():
-                        try:
-                            # Try aplay first, then ffplay
-                            if subprocess.run(["which", "aplay"], capture_output=True).returncode == 0:
-                                subprocess.run(["aplay", "-q", out_path])
-                            elif subprocess.run(["which", "ffplay"], capture_output=True).returncode == 0:
-                                subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", out_path])
-                        except: pass
-                    threading.Thread(target=play_audio, daemon=True).start()
-                else:
-                    msg += "Hint: Run with '--autoplay' to hear responses immediately.\n"
+                import subprocess
+                import threading
+                def play_audio():
+                    try:
+                        if subprocess.run(["which", "aplay"], capture_output=True).returncode == 0:
+                            subprocess.run(["aplay", "-q", out_path])
+                        elif subprocess.run(["which", "ffplay"], capture_output=True).returncode == 0:
+                            subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", out_path])
+                    except: pass
+                threading.Thread(target=play_audio, daemon=True).start()
                     
                 yield {"message": {"content": msg}}
                 return
@@ -165,11 +162,48 @@ class UniversalPyTorchRuntime:
                 console.print("\n[dim magenta]🎙️ Generating Audio...[/dim magenta]")
                 res = self._pipe(user_text)
                 
-                out_path = os.path.expanduser("~/Desktop/lmms_audio_response.wav")
+                out_path = "/tmp/lmms_audio_response.wav"
                 sf.write(out_path, res["audio"][0], res["sampling_rate"])
                 
-                msg = f"[Audio saved to {out_path}]\n"
+                msg = "[Playing generated audio...]\n"
+                import subprocess
+                import threading
+                def play_audio():
+                    try:
+                        if subprocess.run(["which", "aplay"], capture_output=True).returncode == 0:
+                            subprocess.run(["aplay", "-q", out_path])
+                    except: pass
+                threading.Thread(target=play_audio, daemon=True).start()
+                
                 yield {"message": {"content": msg}}
+                
+            elif task == "automatic-speech-recognition":
+                if not user_audio:
+                    yield {"message": {"content": "Error: This model requires an audio file, but none was provided. Use /audio or drop an audio file."}}
+                    return
+                    
+                import base64
+                import io
+                import soundfile as sf
+                
+                console.print("\n[dim magenta]🎧 Transcribing Audio...[/dim magenta]")
+                b64_data = user_audio.split("base64,")[-1]
+                audio_bytes = base64.b64decode(b64_data)
+                
+                # Convert the audio to numpy array
+                data, samplerate = sf.read(io.BytesIO(audio_bytes))
+                
+                # Resample to 16kHz if necessary (Whisper expects 16k)
+                if samplerate != 16000:
+                    import scipy.signal
+                    num_samples = int(len(data) * 16000 / samplerate)
+                    data = scipy.signal.resample(data, num_samples)
+                    samplerate = 16000
+                
+                res = self._pipe({"sampling_rate": samplerate, "raw": data})
+                output_text = res.get("text", str(res))
+                
+                yield {"message": {"content": output_text}}
                 
             else:
                 yield {"message": {"content": f"[Unsupported Universal Task: {task}. We are constantly adding new modalities!] "}}
