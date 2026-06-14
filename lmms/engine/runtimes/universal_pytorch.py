@@ -70,6 +70,8 @@ class UniversalPyTorchRuntime:
             try:
                 from huggingface_hub.utils import _tqdm
                 _tqdm.tqdm = RichTqdm
+                import transformers.utils.logging as hf_logging
+                hf_logging.disable_progress_bar()
             except: pass
             
             from transformers import pipeline
@@ -93,6 +95,7 @@ class UniversalPyTorchRuntime:
         # Determine the user's latest text prompt
         user_text = ""
         user_image = None
+        user_audio = None
         if messages and isinstance(messages[-1].get("content"), list):
             for item in messages[-1]["content"]:
                 if item["type"] == "text":
