@@ -757,38 +757,71 @@ def main():
                         if not user_input.strip(): continue
                         if user_input.lower() in ["/exit", "/quit", "exit"]: break
                         
-                        screen_keywords = ["screen", "screenshot", "see", "look"]
-                        takes_screenshot = is_vlm and any(kw in user_input.lower() for kw in screen_keywords)
-                        
-                        if takes_screenshot:
-                            try:
-                                import mss
-                                import base64
-                                import tempfile
+                        if user_input.lower().startswith("/image "):
+                            parts = user_input.split(" ", 2)
+                            if len(parts) >= 2:
+                                img_path = parts[1]
+                                text_prompt = parts[2] if len(parts) > 2 else "Describe this image."
                                 
-                                console.print("[dim magenta]📸 Capturing screen...[/dim magenta]")
-                                tf_name = take_screenshot()
-                                from PIL import Image
-                                with Image.open(tf_name) as img:
-                                    img.thumbnail((1024, 1024))
-                                    img.save(tf_name)
-                                with open(tf_name, "rb") as image_file:
-                                    b64_data = base64.b64encode(image_file.read()).decode("utf-8")
-                                os.unlink(tf_name)
+                                if os.path.exists(img_path):
+                                    try:
+                                        import base64
+                                        from PIL import Image
+                                        with Image.open(img_path) as img:
+                                            img.thumbnail((1024, 1024))
+                                            import tempfile
+                                            import os
+                                            tf = tempfile.mktemp(suffix=".png")
+                                            img.save(tf, format="PNG")
+                                            
+                                        with open(tf, "rb") as image_file:
+                                            b64_data = base64.b64encode(image_file.read()).decode("utf-8")
+                                        os.unlink(tf)
                                         
-                                messages.append({
-                                    "role": "user",
-                                    "content": [
-                                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_data}"}},
-                                        {"type": "text", "text": user_input}
-                                    ]
-                                })
-                            except Exception as e:
-                                console.print(f"[red]Failed to capture screen: {e}[/red]")
-                                messages.append({"role": "user", "content": user_input})
+                                        messages.append({
+                                            "role": "user",
+                                            "content": [
+                                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_data}"}},
+                                                {"type": "text", "text": text_prompt}
+                                            ]
+                                        })
+                                        console.print(f"[dim magenta]📸 Loaded local image: {img_path}[/dim magenta]")
+                                    except Exception as e:
+                                        console.print(f"[red]Failed to load image: {e}[/red]")
+                                        continue
+                                else:
+                                    console.print(f"[red]Image not found: {img_path}[/red]")
+                                    continue
                         else:
-                            messages.append({"role": "user", "content": user_input})
+                            screen_keywords = ["screen", "screenshot", "see", "look"]
+                            takes_screenshot = is_vlm and any(kw in user_input.lower() for kw in screen_keywords)
                             
+                            if takes_screenshot:
+                                try:
+                                    console.print("[dim magenta]📸 Capturing screen...[/dim magenta]")
+                                    tf_name = take_screenshot()
+                                    from PIL import Image
+                                    with Image.open(tf_name) as img:
+                                        img.thumbnail((1024, 1024))
+                                        img.save(tf_name)
+                                    import base64, os
+                                    with open(tf_name, "rb") as image_file:
+                                        b64_data = base64.b64encode(image_file.read()).decode("utf-8")
+                                    os.unlink(tf_name)
+                                    
+                                    messages.append({
+                                        "role": "user",
+                                        "content": [
+                                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_data}"}},
+                                            {"type": "text", "text": user_input}
+                                        ]
+                                    })
+                                except Exception as e:
+                                    console.print(f"[red]Failed to capture screen: {e}[/red]")
+                                    messages.append({"role": "user", "content": user_input})
+                            else:
+                                messages.append({"role": "user", "content": user_input})
+
                         sys.stdout.write(f"[{model_name}] ")
                         sys.stdout.flush()
                         
