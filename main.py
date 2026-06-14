@@ -652,7 +652,8 @@ def main():
                     else:
                         from lmms.engine.runtimes.llama_cpp import LlamaCppRuntime
                         runtime = LlamaCppRuntime()
-                        runtime.load_model(path)
+                        if not runtime.load_model(path):
+                            sys.exit(1)
                         
                     print(f"\033[92mWelcome on LMMs engine powerd by MarkanM\033[0m")
                     print(f"\033[96mfor more details visit \033]8;;https://lmms.markanm.com\033\\https://lmms.markanm.com\033]8;;\033\\\033[0m\n")
