@@ -20,7 +20,7 @@ class UniversalPyTorchRuntime:
         # Check if it's Kokoro
         if "kokoro" in model_id.lower():
             try:
-                from kokoro import KPipeline
+                from kokoro import KPipeline  # type: ignore
                 console.print(f"[dim]Loading dedicated Kokoro TTS Pipeline for {model_id}...[/dim]")
                 # Load Kokoro pipeline (American English default for now)
                 self._kokoro_pipeline = KPipeline(lang_code='a') 
@@ -110,7 +110,7 @@ class UniversalPyTorchRuntime:
         # Kokoro Dedicated Handling
         if self._kokoro_pipeline:
             try:
-                import soundfile as sf
+                import soundfile as sf  # type: ignore
                 console.print("\n[dim magenta]🎙️ Generating Audio (Kokoro)...[/dim magenta]")
                 # Generate audio
                 generator = self._kokoro_pipeline(
@@ -198,7 +198,7 @@ class UniversalPyTorchRuntime:
                 
             elif task == "text-to-speech":
                 # Generic TTS fallback for non-Kokoro models
-                import soundfile as sf
+                import soundfile as sf  # type: ignore
                 console.print("\n[dim magenta]🎙️ Generating Audio...[/dim magenta]")
                 res = self._pipe(user_text)
                 
@@ -224,7 +224,7 @@ class UniversalPyTorchRuntime:
                     
                 import base64
                 import io
-                import soundfile as sf
+                import soundfile as sf  # type: ignore
                 
                 console.print("\n[dim magenta]🎧 Transcribing Audio...[/dim magenta]")
                 b64_data = user_audio.split("base64,")[-1]
