@@ -25,7 +25,7 @@ class EngineManager:
             self._initialized = True
 
     def get_runtime(self, model_name: str, force_gguf: bool = False):
-        if force_gguf or model_name.endswith(".gguf") or (self.runtime._is_loaded and getattr(self.runtime, "_model_id", "") == model_name):
+        if force_gguf or model_name.endswith(".gguf") or (model_name in self.runtime._models) or (model_name + ".gguf" in self.runtime._models):
             return self.runtime
             
         # Check if the file is a local gguf file in the models dir

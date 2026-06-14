@@ -224,9 +224,9 @@ async def run_benchmark():
 @app.delete("/v1/models/delete/{model_name}")
 async def delete_model(model_name: str):
     path = os.path.join(MODELS_DIR, f"{model_name}.gguf")
-    if engine_manager.runtime._is_loaded:
+    if model_name in engine_manager.runtime._models or (model_name + ".gguf") in engine_manager.runtime._models:
         engine_manager.cache.unload_model(model_name)
-        engine_manager.runtime.unload_model()
+        engine_manager.runtime.unload_model(model_name)
     if os.path.exists(path):
         os.remove(path)
         return {"status": "success", "message": f"Deleted {model_name}"}
