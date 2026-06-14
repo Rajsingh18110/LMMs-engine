@@ -811,7 +811,13 @@ def main():
                                 continue
                         else:
                             screen_keywords = ["screen", "screenshot", "see", "look"]
-                            takes_screenshot = is_vlm and any(kw in user_input.lower() for kw in screen_keywords)
+                            
+                            has_img_extension = any(ext in user_input.lower() for ext in ['.png', '.jpg', '.jpeg', '.webp'])
+                            is_explicit_screen = user_input.lower().strip() in ["/screen", "/screenshot"]
+                            
+                            takes_screenshot = is_vlm and (is_explicit_screen or (
+                                any(kw in user_input.lower() for kw in screen_keywords) and not has_img_extension
+                            ))
                             
                             if takes_screenshot:
                                 try:
