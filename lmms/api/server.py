@@ -405,10 +405,18 @@ async def pull_model(req: PullRequest, background_tasks: BackgroundTasks):
 
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
-    # Ensure a model is loaded. If not, auto-load? The prompt says "Ensure real tokens stream"
-    # LlamaCppRuntime has generate(context, stream=True)
-    if req.model_name not in engine_manager.runtime._models and req.model_name + ".gguf" not in engine_manager.runtime._models and os.path.basename(req.model_name).replace(".gguf", "") not in engine_manager.runtime._models:
-        # Try to auto-load if file exists
+    # Ensure a model is loaded. If not, auto-load?
+    runtime = None
+    
+    # Check if loaded in llama runtime
+    if req.model_name in engine_manager.runtime._models or req.model_name + ".gguf" in engine_manager.runtime._models or os.path.basename(req.model_name).replace(".gguf", "") in engine_manager.runtime._models:
+        runtime = engine_manager.runtime
+    # Check if loaded in pytorch runtime
+    elif getattr(engine_manager.pytorch_runtime, "_is_loaded", False) and getattr(engine_manager.pytorch_runtime, "_model_id", "") == req.model_name:
+        runtime = engine_manager.pytorch_runtime
+    
+    # Auto-load logic
+    if not runtime:
         path = os.path.join(MODELS_DIR, f"{req.model_name}.gguf")
         
         if not os.path.exists(path):
@@ -428,22 +436,29 @@ async def chat_completions(req: ChatRequest):
                     break
 
         if os.path.exists(path):
+            # It's a GGUF model -> LlamaCppRuntime
             size_gb = os.path.getsize(path) / (1024**3)
             if engine_manager.cache.can_fit(size_gb):
                 success = engine_manager.runtime.load_model(path)
                 if not success:
                     raise HTTPException(status_code=500, detail="Failed to load model. Is llama-cpp-python installed?")
                 engine_manager.cache.load_model(req.model_name, size_gb)
+                runtime = engine_manager.runtime
             else:
                 raise HTTPException(status_code=507, detail="Insufficient memory to auto-load")
         else:
-            raise HTTPException(status_code=404, detail="Model not loaded and file not found")
+            # Fallback to PyTorch Runtime
+            success = engine_manager.pytorch_runtime.load_model(req.model_name)
+            if success:
+                runtime = engine_manager.pytorch_runtime
+            else:
+                raise HTTPException(status_code=404, detail=f"Model '{req.model_name}' not loaded and failed to initialize fallback PyTorch runtime.")
             
     if req.stream:
         async def event_generator():
             try:
                 # generate yields {"message": {"content": "..."}}
-                generator = engine_manager.runtime.generate({"messages": req.messages, "mode": req.mode, "think": req.think}, stream=True)
+                generator = runtime.generate({"messages": req.messages, "mode": req.mode, "think": req.think}, stream=True)
                 for chunk in generator:
                     # chunk is dict, we yield SSE format
                     # data: {"content": "..."}
@@ -453,7 +468,7 @@ async def chat_completions(req: ChatRequest):
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     else:
-        response = engine_manager.runtime.generate({"messages": req.messages, "mode": req.mode, "think": req.think}, stream=False)
+        response = runtime.generate({"messages": req.messages, "mode": req.mode, "think": req.think}, stream=False)
         return response
 
 import random
