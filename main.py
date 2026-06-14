@@ -622,8 +622,6 @@ def main():
                         if requires_pytorch:
                             try:
                                 import torch
-                                print(f"\n\033[93m[Warning]\033[0m Model '{model_name}' requires the PyTorch Support Engine.")
-                                print("Auto-switching to PyTorch engine since it is already installed...")
                                 engine_to_use = "pytorch"
                             except ImportError:
                                 print(f"\n\033[93m[Warning]\033[0m The model '{model_name}' requires the heavy PyTorch Support Engine.")
