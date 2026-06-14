@@ -132,6 +132,7 @@ def main():
     model_args = []
     mode_arg = "deep"
     prompt_parts = []
+    autoplay_audio = False
     is_air = False
     forced_engine = None
     
@@ -150,6 +151,9 @@ def main():
             # Handle "lmms air <cmd>" style
             clean_args = ["air"] + args[1:]
             break # Let the router handle it
+        elif args[i] == "--autoplay":
+            autoplay_audio = True
+            i += 1
         elif args[i] == "run" and i + 1 < len(args):
             i += 1
             # Collect all models until we hit a flag or a prompt string
@@ -594,59 +598,71 @@ def main():
                 active_f = os.path.expanduser("~/.lmms/logs/active_models.json")
                 with open(active_f, "w") as af: json.dump({model_name: f"Loaded (Mode: {mode_arg})"}, af)
                 
-                vlm_hf_map = {
-                    "smolvlm2": "HuggingFaceTB/SmolVLM2-2.2B-Instruct",
-                    "qwen3-vl": "Qwen/Qwen3-VL-8B-Instruct",
-                    "qwen2.5-vl": "Qwen/Qwen2.5-VL-3B-Instruct"
-                }
-                
-                # Models that STRICTLY require PyTorch support engine because they lack llama.cpp chat handlers
-                pytorch_only_models = ["smolvlm2", "qwen3-vl"]
+                # Auto-Detector for Modality and Task
+                import urllib.request
                 
                 is_vlm = False
-                vlm_repo = None
-                for key, repo in vlm_hf_map.items():
-                    if key in model_name.lower():
-                        is_vlm = True
-                        vlm_repo = repo
-                        break
-                        
+                is_audio = False
+                hf_repo = model_name
+                
+                # Aliases for convenience
+                if "smolvlm" in model_name.lower(): hf_repo = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
+                elif "qwen3-vl" in model_name.lower(): hf_repo = "Qwen/Qwen3-VL-8B-Instruct"
+                elif "qwen2.5-vl" in model_name.lower(): hf_repo = "Qwen/Qwen2.5-VL-3B-Instruct"
+                elif "kokoro" in model_name.lower(): hf_repo = "hexgrad/Kokoro-82M"
+                
+                pipeline_tag = None
+                try:
+                    req = urllib.request.Request(f"https://huggingface.co/api/models/{hf_repo}")
+                    with urllib.request.urlopen(req, timeout=3) as response:
+                        data = json.loads(response.read().decode())
+                        pipeline_tag = data.get("pipeline_tag")
+                except Exception:
+                    pass
+                
+                print(f"[dim]Auto-Detector: Model task identified as '{pipeline_tag or 'unknown'}'[/dim]")
+                
+                if pipeline_tag in ["image-text-to-text", "image-to-text", "visual-question-answering"]:
+                    is_vlm = True
+                elif pipeline_tag in ["text-to-speech", "automatic-speech-recognition", "audio-to-audio"]:
+                    is_audio = True
+                
                 # Determine Engine
                 engine_to_use = "llama" # Default lightweight engine
                 
                 if forced_engine:
                     engine_to_use = forced_engine
                 else:
+                    # Route GGUF local files to llama if text, otherwise Universal PyTorch
+                    if is_vlm or is_audio or (pipeline_tag and pipeline_tag not in ["text-generation", "text2text-generation"]):
+                        engine_to_use = "pytorch"
+                        
+                if engine_to_use == "pytorch":
                     try:
-                        requires_pytorch = any(m in model_name.lower() for m in pytorch_only_models)
-                        if requires_pytorch:
-                            try:
-                                import torch
-                                engine_to_use = "pytorch"
-                            except ImportError:
-                                print(f"\n\033[93m[Warning]\033[0m The model '{model_name}' requires the heavy PyTorch Support Engine.")
-                                print("This package can run experimental models but uses massive resources (CUDA/PyTorch).")
-                                choice = input("Would you like to DOWNLOAD the Support Engine package? (y/n): ")
-                                if choice.strip().lower() == "y":
-                                    print("\033[92mTo install the support package, please run:\033[0m")
-                                    print("pip install torch torchvision transformers accelerate")
-                                    sys.exit(0)
-                                else:
-                                    print("\033[91mAborted.\033[0m We recommend using 'Qwen2.5-VL' or 'LLaVA' for native lightweight llama.cpp support.")
-                                    sys.exit(0)
-                    except KeyboardInterrupt:
-                        print("\n\033[91mAborted by user.\033[0m")
-                        sys.exit(0)
+                        import torch
+                    except ImportError:
+                        print(f"\n\033[93m[Warning]\033[0m The model '{hf_repo}' requires the Universal PyTorch Pipeline.")
+                        print("This package supports Vision/Audio/TTS but uses massive resources (CUDA/PyTorch).")
+                        choice = input("Would you like to DOWNLOAD the Support Engine package? (y/n): ")
+                        if choice.strip().lower() == "y":
+                            print("\033[92mTo install the support package, please run:\033[0m")
+                            print("pip install torch torchvision torchaudio transformers accelerate soundfile kokoro")
+                            sys.exit(0)
+                        else:
+                            print("\033[91mAborted.\033[0m")
+                            sys.exit(0)
                         
                 try:
                     from rich.console import Console
                     console = Console()
                     
                     if engine_to_use == "pytorch":
-                        from lmms.engine.runtimes.hf_vision import HfVisionRuntime
-                        runtime = HfVisionRuntime()
-                        # Fallback if someone forces PyTorch for a text model
-                        repo_to_load = vlm_repo if vlm_repo else model_name
+                        from lmms.engine.runtimes.universal_pytorch import UniversalPyTorchRuntime
+                        runtime = UniversalPyTorchRuntime()
+                        # Pass the pipeline_tag so the runtime knows what to do
+                        runtime.pipeline_tag = pipeline_tag
+                        runtime.autoplay_audio = autoplay_audio
+                        repo_to_load = hf_repo
                         if not runtime.load_model(repo_to_load):
                             sys.exit(1)
                     else:
