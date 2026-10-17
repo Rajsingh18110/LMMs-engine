@@ -37,6 +37,11 @@ def main():
     for subdir in ["models", "cache", "logs", "manifests", "workspaces"]:
         os.makedirs(os.path.join(base_dir, subdir), exist_ok=True)
     args = sys.argv[1:]
+
+    if args and args[0] in ["install", "server", "connect", "remote", "tui", "gui", "-g", "--gui", "-t", "--tui"]:
+        from lmms.cli.main import main as cli_main
+        cli_main(args)
+        return
     
     if not args or args[0] in ("-h", "--help", "help"):
         print('''
