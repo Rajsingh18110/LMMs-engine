@@ -38,7 +38,7 @@ def main():
         os.makedirs(os.path.join(base_dir, subdir), exist_ok=True)
     args = sys.argv[1:]
 
-    if args and args[0] in ["install", "server", "connect", "remote", "tui", "gui", "-g", "--gui", "-t", "--tui"]:
+    if args and args[0] in ["install", "update", "server", "connect", "remote", "tui", "gui", "-g", "--gui", "-t", "--tui", "engine", "-e", "--engine"]:
         from lmms.cli.main import main as cli_main
         cli_main(args)
         return
@@ -298,7 +298,7 @@ def main():
     clean_args = [a for a in args if a not in ["--air", "-air"]]
     
     # Engine CLI Commands Bypass
-    if clean_args and clean_args[0] in ["run", "list", "ps", "pull", "info", "benchmark", "rm", "delete", "stop", "search", "doctor", "cache", "air", "registry", "downloads", "create", "server", "install", "update", "connect", "remote", "chat"]:
+    if clean_args and clean_args[0] in ["run", "list", "ps", "pull", "info", "benchmark", "rm", "delete", "stop", "search", "doctor", "cache", "air", "registry", "downloads", "create", "server", "install", "update", "engine", "connect", "remote", "chat"]:
         import requests, json, sys, os
         cmd = clean_args[0]
         try:
@@ -310,6 +310,11 @@ def main():
             elif cmd == "update":
                 from lmms.cli.installer import run_updater
                 run_updater(clean_args[1:])
+                sys.exit(0)
+
+            elif cmd == "engine":
+                from lmms.engine.main import run_engine
+                run_engine(clean_args[1:])
                 sys.exit(0)
 
             elif cmd == "connect":
