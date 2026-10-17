@@ -8,7 +8,7 @@ class ModelManifest:
                  provider: str, 
                  path: str, 
                  format: str, 
-                 capabilities: List[str] = None,
+                 capabilities: Optional[List[str]] = None,
                  context: int = 8192,
                  quantization: str = "Unknown",
                  size: int = 0,

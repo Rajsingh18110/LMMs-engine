@@ -210,7 +210,8 @@ class ModelManager:
 
         # Allow passing background=False to block execution (e.g. for CLI `lmms pull`)
         import inspect
-        frame = inspect.currentframe().f_back
+        _curr = inspect.currentframe()
+        frame = _curr.f_back if _curr else None
         is_cli_pull = False
         while frame:
             if "cli.py" in frame.f_code.co_filename and frame.f_code.co_name == "handle_cli":
@@ -369,7 +370,7 @@ class ModelManager:
         # Rich
         try:
             import rich
-            results.append(("Rich UI", "✅ installed", f"v{rich.__version__}"))
+            results.append(("Rich UI", "✅ installed", f"v{getattr(rich, '__version__', '')}"))
         except ImportError:
             results.append(("Rich UI", "❌ missing", "pip install rich"))
 
