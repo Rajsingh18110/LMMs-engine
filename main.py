@@ -298,13 +298,18 @@ def main():
     clean_args = [a for a in args if a not in ["--air", "-air"]]
     
     # Engine CLI Commands Bypass
-    if clean_args and clean_args[0] in ["run", "list", "ps", "pull", "info", "benchmark", "rm", "delete", "stop", "search", "doctor", "cache", "air", "registry", "downloads", "create", "server", "install", "connect", "remote", "chat"]:
+    if clean_args and clean_args[0] in ["run", "list", "ps", "pull", "info", "benchmark", "rm", "delete", "stop", "search", "doctor", "cache", "air", "registry", "downloads", "create", "server", "install", "update", "connect", "remote", "chat"]:
         import requests, json, sys, os
         cmd = clean_args[0]
         try:
             if cmd == "install":
                 from lmms.cli.installer import run_installer
                 run_installer(clean_args[1:])
+                sys.exit(0)
+
+            elif cmd == "update":
+                from lmms.cli.installer import run_updater
+                run_updater(clean_args[1:])
                 sys.exit(0)
 
             elif cmd == "connect":
